@@ -1,0 +1,223 @@
+services:
+  fedex_service:
+    class: App\PssWorkerBundle\Service\FedexService
+    arguments:
+    - '@service_container'
+
+  pss_workers.data_sync:
+    class: App\PssWorkerBundle\DataObject\DataSyncManager
+    autowire: false
+    arguments:
+    - '@doctrine.orm.entity_manager'
+
+  pss_workers.kestrel_source:
+    class: App\PssWorkerBundle\DataObject\Kestrel\KestrelSource
+    autowire: false
+    arguments:
+    - '@secit.imap'
+    - '@pss_workers.data_sync'
+    - 'worker.kestrel.connection'
+    - 'lhr@kestrel.com'
+    - '@monolog.logger.pssworker'
+
+  pss_workers.fedex_source:
+    class: App\PssWorkerBundle\DataObject\FedEx\FedExSource
+    autowire: false
+    arguments:
+    - '@doctrine.orm.entity_manager'
+    - '@fedex_service'
+    - '@monolog.logger.pssworker'
+
+  pss_workers.magento_destination:
+    class: App\PssWorkerBundle\DataObject\Magento\MagentoDestination
+    autowire: false
+    arguments:
+    - '@pss_workers.data_sync'
+    - '@monolog.logger.pssworker'
+
+  pss_workers.salesforce_destination:
+    class: App\PssWorkerBundle\DataObject\SalesForce\SalesForceDestination
+    autowire: false
+    arguments:
+    - '@pss_workers.data_sync'
+    - '@salesforce.service'
+    - '@monolog.logger.pssworker'
+    - '%pss_worker.mapping%'
+    calls:
+      - method: setSkipNewer
+        arguments:
+          - true
+
+  pss_workers.salesforce_quotation_destination:
+    class: App\PssWorkerBundle\DataObject\SalesForce\SalesForceQuotationDestination
+    autowire: false
+    arguments:
+    - '@pss_workers.data_sync'
+    - '@salesforce.service'
+    - '@monolog.logger.pssworker'
+    - '%pss_worker.mapping%'
+    calls:
+    - method: setSkipNewer
+      arguments:
+        - false
+
+
+  pss_workers.salesforce_destination_sync:
+    class: App\PssWorkerBundle\DataObject\SalesForce\SalesForceDestination
+    autowire: false
+    arguments:
+      - '@pss_workers.data_sync'
+      - '@salesforce.service'
+      - '@monolog.logger.pssworker_sync'
+      - '%pss_worker.mapping%'
+    calls:
+      - method: setSkipNewer
+        arguments:
+          - true
+
+  pss_workers.salesforce_note_destination:
+    class: App\PssWorkerBundle\DataObject\SalesForce\SalesForceNoteDestination
+    autowire: false
+    arguments:
+    - '@pss_workers.data_sync'
+    - '@salesforce.service'
+    - '@monolog.logger.pssworker'
+    - '%pss_worker.mapping%'
+
+
+  pss_workers.local_shipment_source:
+    class: App\PssWorkerBundle\DataObject\Local\ShipmentSource
+    autowire: false
+    arguments:
+    - '@doctrine.orm.entity_manager'
+    - '@monolog.logger.pssworker'
+    - '@pss_workers.data_sync'
+
+  pss_workers.local_shipment_destination:
+    class: App\PssWorkerBundle\DataObject\Local\ShipmentDestination
+    autowire: false
+    arguments:
+      - '@doctrine.orm.entity_manager'
+      - '@monolog.logger.pssworker'
+
+  pss_workers.kestrel_download_worker:
+    class: App\PssWorkerBundle\Service\PssWorker
+    autowire: false
+    public: true
+    properties:
+      workerName: 'kestrel_download_worker'
+    arguments:
+    - '@pss_workers.kestrel_source'
+    - '@pss_workers.local_shipment_destination'
+    - '@monolog.logger.pssworker'
+    calls:
+      - method: restartOnErrors
+        arguments:
+          - false
+    tags:
+    - { name: "dtc_queue.worker" }
+
+  pss_workers.fedex_download_worker:
+    class: App\PssWorkerBundle\Service\PssWorker
+    autowire: false
+    public: true
+    properties:
+      workerName: 'fedex_download_worker'
+    arguments:
+    - '@pss_workers.fedex_source'
+    - '@pss_workers.local_shipment_destination'
+    - '@monolog.logger.pssworker'
+    calls:
+      - method: restartOnErrors
+        arguments:
+          - false
+    tags:
+    - { name: "dtc_queue.worker" }
+
+  pss_workers.magento_upload_worker:
+    class: App\PssWorkerBundle\Service\PssWorker
+    autowire: false
+    public: true
+    properties:
+      workerName: 'magento_upload_worker'
+    arguments:
+    - '@pss_workers.local_shipment_source'
+    - '@pss_workers.magento_destination'
+    - '@monolog.logger.pssworker'
+    tags:
+    - { name: "dtc_queue.worker" }
+
+  pss_workers.salesforce_upload_worker:
+    class: App\PssWorkerBundle\Service\PssWorker
+    autowire: false
+    public: true
+    properties:
+      workerName: 'salesforce_upload_worker'
+    arguments:
+      - '@pss_workers.local_shipment_source'
+      - '@pss_workers.salesforce_destination'
+      - '@monolog.logger.pssworker'
+    tags:
+    - { name: "dtc_queue.worker" }
+
+  pss_workers.salesforce_quotation_upload_worker:
+    class: App\PssWorkerBundle\Service\PssWorker
+    autowire: false
+    public: true
+    properties:
+      workerName: 'salesforce_quotation_upload_worker'
+    arguments:
+    - '@pss_workers.local_shipment_source'
+    - '@pss_workers.salesforce_quotation_destination'
+    - '@monolog.logger.pssworker'
+    tags:
+    - { name: "dtc_queue.worker" }
+
+
+  pss_workers.salesforce_upload_worker_sync:
+    class: App\PssWorkerBundle\Service\PssWorker
+    autowire: false
+    public: true
+    properties:
+      workerName: 'salesforce_upload_worker_sync'
+    arguments:
+      - '@pss_workers.local_shipment_source'
+      - '@pss_workers.salesforce_destination_sync'
+      - '@monolog.logger.pssworker_sync'
+    calls:
+      - method: restartOnErrors
+        arguments:
+          - false
+    tags:
+      - { name: "dtc_queue.worker" }
+
+  pss_workers.salesforce_notification_worker:
+    class: App\PssWorkerBundle\Service\PssWorker
+    autowire: false
+    public: true
+    properties:
+      workerName: 'salesforce_notification_worker'
+    arguments:
+    - '@pss_workers.local_shipment_source'
+    - '@pss_workers.salesforce_note_destination'
+    - '@monolog.logger.pssworker'
+    tags:
+    - { name: "dtc_queue.worker" }
+
+
+
+  pss_workers.fedex_m_rule:
+    class: App\PssWorkerBundle\Util\Rules\FedexMRule
+    autowire: false
+    arguments:
+      - '@doctrine.orm.entity_manager'
+      - '@monolog.logger.pssworker_fedex_m'
+      - '@salesforce.service'
+
+  pss_workers.fedex_m_updater:
+    class: App\PssWorkerBundle\Util\TrackingImporter
+    autowire: false
+    public: true
+    arguments:
+      - '@pss_workers.fedex_m_rule'
+      - '@monolog.logger.pssworker_fedex_m'

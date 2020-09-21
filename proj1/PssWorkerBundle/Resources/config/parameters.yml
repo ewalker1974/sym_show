@@ -1,0 +1,10 @@
+parameters:
+    fedex_production_mode: '%env(bool:FEDEX_PRODUCTION_MODE)%'
+    fedex_account_number: '%env(FEDEX_ACCOUNT_NUMBER)%'
+    fedex_meter_number: '%env(FEDEX_METER_NUMBER)%'
+    fedex_key: '%env(FEDEX_KEY)%'
+    fedex_password: '%env(FEDEX_PASSWORD)%'
+
+    pamono_labels_dsn: '%env(PAMONO_LABELS_DSN)%'
+    pamono_labels_login: '%env(PAMONO_LABELS_LOGIN)%'
+    pamono_labels_pass: '%env(PAMONO_LABELS_PASS)%'
